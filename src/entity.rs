@@ -40,7 +40,7 @@ impl Display for Entity {
     for attack in self.attacks.iter() {
       attack_descs += &attack.to_string();
     }
-    write!(f, "**{}**  {}/{} ❤️ {}\n{}{}", self.name,
+    write!(f, "**{}**  {}/{} ❤️  {}\n{}{}", self.name,
       self.current_health, self.max_health, if self.is_alive() {' '} else {'💀'}, ability_descs, attack_descs)
   }
 }
@@ -125,7 +125,7 @@ impl Entity {
   pub fn check_for_trigger(&mut self, trigger: AbilityTrigger, ability_queue: &mut Vec<(Ability, u8, u8)>, source: u8, target: u8) -> String {
     let mut result = String::new();
     for ability in self.abilities.iter() {
-      if trigger == ability.trigger {
+      if ability.trigger.match_(&trigger) {
         println!("\"{}\" has been triggered! (#{})", ability.name, source);
         result += &format!("`{}` has been triggered! (#{})\n", ability.name, source);
 
@@ -147,6 +147,19 @@ impl Entity {
 
   pub fn is_alive(&self) -> bool {
     self.state & ALIVE != 0
+  }
+
+  pub fn describe(&self) -> String {
+    let mut ability_descs = String::new();
+    for ability in self.abilities.iter() {
+      ability_descs += &ability.to_string();
+    }
+    let mut attack_descs = String::new();
+    for attack in self.attacks.iter() {
+      attack_descs += &attack.to_string();
+    }
+    format!("**{}** {}/{} ❤️  {}\n{}\n{}{}", self.name, self.current_health, self.max_health,
+            if self.is_alive() {' '} else {'💀'}, self.description, ability_descs, attack_descs)
   }
 }
 

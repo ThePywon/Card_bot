@@ -220,4 +220,14 @@ impl Scene {
 
     result
   }
+
+  #[allow(dead_code)]
+  pub fn nuke(&mut self) {
+    self.teams = Vec::new();
+  }
+
+  #[allow(dead_code)]
+  pub fn is_empty(&self) -> bool {
+    self.teams.len() == 0
+  }
 }
