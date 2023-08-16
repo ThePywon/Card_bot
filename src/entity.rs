@@ -17,12 +17,15 @@ pub use attack::Attack;
 
 #[derive(Debug, Clone)]
 pub struct Entity {
+  pub id: Uuid,
   pub name: &'static str,
+  pub description: &'static str,
   pub max_health: u8,
   pub current_health: u8,
   pub abilities: Vec<&'static Ability>,
   pub attacks: Vec<&'static Attack>,
   pub state: u8,
+  pub stacks: Vec<(DamageType, u8)>,
   pub attributes: u8,
   pub damage_resistance: HashMap<DamageType, DamageResistance>
 }
@@ -43,8 +46,8 @@ impl Display for Entity {
 }
 
 pub struct EntityBuilder {
-  pub id: Uuid,
   pub name: &'static str,
+  pub description: &'static str,
   pub base_health: (u8, u8),
   pub base_properties: (u8, Vec<(DamageType, DamageResistance)>),
   pub variant_properties: Vec<(u8, Vec<(DamageType, DamageResistance)>, f32)>,
@@ -61,31 +64,31 @@ impl Entity {
 
     let mut result = String::new();
 
-    println!("**{}** is being attacked for {} {} damage.", self.name, amt, t);
+    println!("\"{}\" is being attacked for {} {} damage.", self.name, amt, t);
     result += &format!("**{}** is being attacked for {} {} damage.\n", self.name, amt, t);
 
     let multiplier: f64;
     match self.damage_resistance.get(&t).unwrap() {
       DamageResistance::WEAKNESS => {
         multiplier = 1.5;
-        println!("**{}** is weak to {} damage!", self.name, t);
+        println!("\"{}\" is weak to {} damage!", self.name, t);
         result += &format!("**{}** is weak to {} damage!\n", self.name, t);
       },
       DamageResistance::NEUTRAL => multiplier = 1.0,
       DamageResistance::RESISTANCE => {
         multiplier = 0.5;
-        println!("**{}** is resistant to {} damage!", self.name, t);
+        println!("\"{}\" is resistant to {} damage!", self.name, t);
         result += &format!("**{}** is resistant to {} damage!\n", self.name, t);
       },
       DamageResistance::IMMUNITY => {
         multiplier = 0.0;
-        println!("**{}** is immune to {} damage!", self.name, t);
+        println!("\"{}\" is immune to {} damage!", self.name, t);
         result += &format!("**{}** is immune to {} damage!\n", self.name, t);
       }
     }
 
     let actual_amount = (amt as f64 * multiplier) as u8;
-    println!("**{}** took {} {} damage.", self.name, actual_amount, t);
+    println!("\"{}\" took {} {} damage.", self.name, actual_amount, t);
     result += &format!("**{}** took {} {} damage.\n", self.name, actual_amount, t);
     self.current_health -= actual_amount;
 
@@ -123,7 +126,7 @@ impl Entity {
     let mut result = String::new();
     for ability in self.abilities.iter() {
       if trigger == ability.trigger {
-        println!("`{}` has been triggered! (#{})", ability.name, source);
+        println!("\"{}\" has been triggered! (#{})", ability.name, source);
         result += &format!("`{}` has been triggered! (#{})\n", ability.name, source);
 
         ability_queue.push(((*ability).clone(), source, target));
@@ -148,10 +151,12 @@ impl Entity {
 }
 
 impl EntityBuilder {
-  pub fn new(name: &'static str, base_health: (u8, u8), base_properties: (u8, Vec<(DamageType, DamageResistance)>),
-    variant_properties: Vec<(u8, Vec<(DamageType, DamageResistance)>, f32)>, abilities: Vec<&'static Ability>, attacks: Vec<&'static Attack>) -> Self {
-    EntityBuilder { id: Uuid::new_v4(), name, base_health, base_properties,
-      variant_properties, abilities, attacks }
+  pub fn new(name: &'static str, description: &'static str,
+    base_health: (u8, u8), base_properties: (u8, Vec<(DamageType, DamageResistance)>),
+    variant_properties: Vec<(u8, Vec<(DamageType, DamageResistance)>, f32)>,
+    abilities: Vec<&'static Ability>, attacks: Vec<&'static Attack>) -> Self {
+      EntityBuilder { name, description, base_health,
+        base_properties, variant_properties, abilities, attacks }
   }
 
   fn get_base_health(&self) -> u8 {
@@ -219,8 +224,8 @@ impl EntityBuilder {
   pub fn build(&self) -> Entity {
     let max_health = self.get_base_health();
     let properties = self.get_properties();
-    Entity { name: self.name, max_health, current_health: max_health,
+    Entity { id: Uuid::new_v4(), name: self.name, description: self.description, max_health, current_health: max_health,
       abilities: self.get_abilities(properties.0), attacks: self.get_attacks(properties.0),
-      state: ALIVE, attributes: properties.0, damage_resistance: properties.1 }
+      state: ALIVE, stacks: Vec::new(), attributes: properties.0, damage_resistance: properties.1 }
   }
 }

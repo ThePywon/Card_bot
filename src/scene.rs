@@ -1,19 +1,15 @@
-use std::collections::HashMap;
-
-use crate::entity::{Entity, AbilityTrigger, Ability,
-  ability::{AbilityTriggerType, trigger_target::{ITSELF, ALLY, OPPONENT}, AbilityEffectTarget},
-  dmg_type::DamageType};
+use crate::entity::{Entity, AbilityTrigger, Ability, ability::{AbilityTriggerType,
+  trigger_target::{ITSELF, ALLY, OPPONENT}, AbilityEffectTarget}};
 
 #[allow(dead_code, non_snake_case)]
 pub struct Scene {
-  pub teams: Vec<(&'static str, Vec<Entity>)>,
-  pub battle_data: HashMap<u8, HashMap<DamageType, i32>>
+  pub teams: Vec<(&'static str, Vec<Entity>)>
 }
 
 
 impl Scene {
   pub fn new() -> Self {
-    Scene { teams: Vec::new(), battle_data: HashMap::new() }
+    Scene { teams: Vec::new() }
   }
   
   #[allow(non_snake_case)]
@@ -23,7 +19,6 @@ impl Scene {
         let entity_index = entities.len() as u8;
         entities.push(entity.clone());
         let result = entity_index << 2 | index as u8;
-        self.battle_data.insert(result, HashMap::new());
         return result;
       }
     }
@@ -35,7 +30,6 @@ impl Scene {
     }
 
     self.teams.push((team, vec![entity.clone()]));
-    self.battle_data.insert(team_index, HashMap::new());
     team_index
   }
 
@@ -57,10 +51,9 @@ impl Scene {
     let mut e = self.get_mut_entity_from_id(attacker).unwrap();
 
     // Check if attack exists
-    if let None = e.get_attack(attack_name) {
-      let result = format!("**{}**#{} does not know the `{}` attack", e.name, attacker, attack_name);
-      println!("{}", result);
-      return result;
+    if let None = e.get_attack(attack_name) { 
+      println!("\"{}\"#{} does not know the \"{}\" attack", e.name, attacker, attack_name);
+      return format!("**{}**#{} does not know the `{}` attack", e.name, attacker, attack_name);
     }
 
 
@@ -70,16 +63,14 @@ impl Scene {
 
     // Check if target is alive
     if !e.is_alive() {
-      let result = format!("**{}**#{} tried using `{}` but was unconscious!\n", e.name, attacker, attack.name);
-      println!("{}", result);
-      return result;
+      println!("\"{}\"#{} tried using \"{}\" but was unconscious", e.name, attacker, attack.name);
+      return format!("**{}**#{} tried using `{}` but was unconscious!", e.name, attacker, attack.name);
     }
 
     e = self.get_mut_entity_from_id(target).unwrap();
     if !e.is_alive() {
-      let result = format!("**{}**#{} was targetted by the `{}` attack but is already unconscious!\n", e.name, target, attack.name);
-      println!("{}", result);
-      return result;
+      println!("\"{}\"#{} was targetted by the \"{}\" attack but is already unconscious", e.name, target, attack.name);
+      return format!("**{}**#{} was targetted by the `{}` attack but is already unconscious!", e.name, target, attack.name);
     }
 
     // Variables
@@ -88,10 +79,10 @@ impl Scene {
     let dmg_taken: u8;
 
     e = self.get_mut_entity_from_id(attacker).unwrap();
-    println!("**{}**#{} is using the `{}` attack", e.name, attacker, attack.name);
+    println!("\"{}\"#{} is using the \"{}\" attack", e.name, attacker, attack.name);
     result += &format!("**{}**#{} is using the `{}` attack", e.name, attacker, attack.name);
     e = self.get_mut_entity_from_id(target).unwrap();
-    println!(" on **{}**#{}", e.name, target);
+    println!(" on \"{}\"#{}", e.name, target);
     result += &format!(" on **{}**#{}\n", e.name, target);
     
 
@@ -141,10 +132,10 @@ impl Scene {
       // Check for vamp healing
       if attack.t.is_vampiric() {
         let healed_amt = e.heal(dmg_taken);
-        println!("**{}** is being healed for {} health.", e.name, dmg_taken);
-        println!("**{}** got healed by {} health.", e.name, healed_amt);
-        result += &format!("**{}** is being healed for {} health.\n", e.name, dmg_taken);
-        result += &format!("**{}** got healed by {} health.\n", e.name, healed_amt);
+        println!("\"{}\" is being healed for {} ❤️ ", e.name, dmg_taken);
+        println!("\"{}\" got healed by {} ❤️ ", e.name, healed_amt);
+        result += &format!("**{}** is being healed for {} ❤️ \n", e.name, dmg_taken);
+        result += &format!("**{}** got healed by {} ❤️ \n", e.name, healed_amt);
       }
     }
 
@@ -169,7 +160,7 @@ impl Scene {
     for (_, team) in self.teams.iter_mut() {
       for entity in team.iter_mut() {
         if entity.died() {
-          println!("**{}** has fainted!", entity.name);
+          println!("\"{}\" has fainted!", entity.name);
           result += &format!("**{}** has fainted!", entity.name);
         }
       }
