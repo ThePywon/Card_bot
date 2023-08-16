@@ -4,7 +4,7 @@ use dotenvy;
 use poise::serenity_prelude as serenity;
 
 mod scene;
-use entity::ability::{AbilityTriggerType, trigger_target::{ITSELF, OPPONENT}, AbilityEffectTarget};
+use entity::ability::{AbilityTriggerType, trigger_target::{ITSELF, ALLY, OPPONENT}, AbilityEffectTarget};
 use scene::Scene;
 mod entity;
 use entity::{Attack, Ability, EntityBuilder};
@@ -24,7 +24,10 @@ async fn main() {
       commands: vec![
         describe_scene(),
         attack(),
-        heal()
+        heal(),
+        describe_entity(),
+        nuke(),
+        fill_scene()
       ],
       ..Default::default()
     })
@@ -34,79 +37,7 @@ async fn main() {
       Box::pin(async move {
         poise::builtins::register_globally(ctx, &framework.options().commands).await?;
 
-        let slime_builder = EntityBuilder::new(
-          "Slime",
-          "A small mass made out of a viscous substance.\n\
-          It would almost be cute... if it wasn't able to eat you whole.",
-          (2, 10), (attributes::NONE, vec![
-            (PHYSICAL, RESISTANCE),
-            (VAMPIRIC, RESISTANCE)
-          ]),
-          vec![
-            (attributes::POISONOUS, vec![
-              (POISON, IMMUNITY)
-            ], 0.01),
-            (attributes::ACIDIC, vec![
-              (ACID, IMMUNITY)
-            ], 0.01)],
-          vec![
-            &Ability { name: "Poison Touch", trigger: AbilityTrigger { t: AbilityTriggerType::Damage(PHYSICAL), source: ITSELF, target: OPPONENT },
-            effect: AbilityEffect { target: AbilityEffectTarget::TriggerTarget, damage: 1, t: POISON },
-            required_traits: attributes::POISONOUS, forbidden_traits: attributes::NONE, probability: 1.0 },
-            &Ability { name: "Acid Touch", trigger: AbilityTrigger { t: AbilityTriggerType::Damage(PHYSICAL), source: ITSELF, target: OPPONENT },
-              effect: AbilityEffect { target: AbilityEffectTarget::TriggerTarget, damage: 1, t: ACID },
-              required_traits: attributes::ACIDIC, forbidden_traits: attributes::NONE, probability: 1.0 }
-          ],
-          vec![
-            &Attack { name: "Head Bump", cost: 1, damage: 3, t: PHYSICAL, required_traits: attributes::NONE,
-            forbidden_traits: attributes::NONE, prob: 1.0 }
-          ]
-        );
-      
-        let leech_builder = EntityBuilder::new(
-          "Leech",
-          "A small parasite that quite literally sucks the life force out of you!",
-          (1, 5), (attributes::PHYSICAL, vec![
-            (VAMPIRIC, IMMUNITY)
-          ]),
-          vec![(attributes::POISONOUS, Vec::new(), 1.0)],
-          Vec::new(),
-          vec![
-            &Attack { name: "Parasite Bite", cost: 1, damage: 2, t: VAMPIRIC, required_traits: attributes::NONE,
-            forbidden_traits: attributes::NONE, prob: 1.0 },
-            &Attack { name: "Poison Sting", cost: 1, damage: 2, t: POISON, required_traits: attributes::POISONOUS,
-            forbidden_traits: attributes::NONE, prob: 1.0 }
-          ]
-        );
-      
-        let bat_builder = EntityBuilder::new(
-          "Bat",
-          "One of the most iconic nocturnal creatures of Phunuse.",
-          (1, 4), (attributes::PHYSICAL, vec![
-            (ACID, RESISTANCE)
-          ]),
-          Vec::new(),
-          vec![
-            &Ability { name: "Echo Strike", trigger: AbilityTrigger { t: AbilityTriggerType::AnyDamage, source: ITSELF, target: OPPONENT },
-              effect: AbilityEffect { target: AbilityEffectTarget::TriggerTarget, damage: 1, t: PHYSICAL },
-              required_traits: attributes::NONE, forbidden_traits: attributes::NONE, probability: 1.0 }
-          ],
-          vec![
-            &Attack { name: "Sonic Scream", cost: 1, damage: 2, t: PHYSICAL, required_traits: attributes::NONE,
-            forbidden_traits: attributes::NONE, prob: 1.0 }
-          ]
-        );
-
-        let mut scene = Scene::new();
-
-        let slime = slime_builder.build();
-        let bat = bat_builder.build();
-        let leech = leech_builder.build();
-        scene.register("A", &slime);
-        scene.register("A", &bat);
-        scene.register("B", &leech);
-
-        Ok(Arc::new(Mutex::from(scene)))
+        Ok(Arc::new(Mutex::from(Scene::new())))
       })
     });
 
@@ -118,7 +49,10 @@ async fn main() {
   default_member_permissions = "SEND_MESSAGES",
   required_bot_permissions = "SEND_MESSAGES")]
 async fn describe_scene(ctx: Context<'_>) -> Result<(), Error> {
-  let result = Arc::clone(ctx.data()).lock().unwrap().describe_scene();
+  let mut result = Arc::clone(ctx.data()).lock().unwrap().describe_scene();
+  if result.len() == 0 {
+    result = String::from("Nothing in the scene yet!");
+  }
   ctx.say(result).await?;
   Ok(())
 }
@@ -157,5 +91,115 @@ async fn heal(ctx: Context<'_>,
     }
     ctx.say(result).await?;
     Ok(())
+}
+
+/// Describe an entity
+#[poise::command(slash_command,
+  default_member_permissions = "SEND_MESSAGES",
+  required_bot_permissions = "SEND_MESSAGES")]
+async fn describe_entity(ctx: Context<'_>,
+  #[description = "Entity ID"] id: u8) -> Result<(), Error> {
+    let mut result = format!("Could not find entity with id #{}", id);
+    if let Some(e) = Arc::clone(ctx.data()).lock().unwrap().get_mut_entity_from_id(id) {
+      result = e.describe();
+    }
+    ctx.say(result).await?;
+    Ok(())
+}
+
+/// Literally nuke the scene
+#[poise::command(slash_command,
+  default_member_permissions = "SEND_MESSAGES",
+  required_bot_permissions = "SEND_MESSAGES")]
+async fn nuke(ctx: Context<'_>) -> Result<(), Error> {
+  Arc::clone(ctx.data()).lock().unwrap().nuke();
+  ctx.say("Nuke activated.\nCongrats, everything is gone now.").await?;
+  Ok(())
+}
+
+/// Fill up the scene
+#[poise::command(slash_command,
+  default_member_permissions = "SEND_MESSAGES",
+  required_bot_permissions = "SEND_MESSAGES")]
+async fn fill_scene(ctx: Context<'_>) -> Result<(), Error> {
+  if Arc::clone(ctx.data()).lock().unwrap().is_empty() {
+    let slime_builder = EntityBuilder::new(
+      "Slime",
+      "A small mass made out of a viscous substance.\n\
+      It would almost be cute... if it wasn't able to eat you whole.",
+      (2, 10), (attributes::NONE, vec![
+        (PHYSICAL, RESISTANCE),
+        (VAMPIRIC, RESISTANCE)
+      ]),
+      vec![
+        (attributes::POISONOUS, vec![
+          (POISON, IMMUNITY)
+        ], 0.01),
+        (attributes::ACIDIC, vec![
+          (ACID, IMMUNITY)
+        ], 0.01)],
+      vec![
+        &Ability { name: "Poison Touch", trigger: AbilityTrigger { t: AbilityTriggerType::Damage(PHYSICAL),
+          source: ITSELF, target: OPPONENT },
+          effect: AbilityEffect { target: AbilityEffectTarget::TriggerTarget, damage: 1, t: POISON },
+          required_traits: attributes::POISONOUS, forbidden_traits: attributes::NONE, probability: 1.0 },
+        &Ability { name: "Acid Touch", trigger: AbilityTrigger { t: AbilityTriggerType::Damage(PHYSICAL), source: ITSELF, target: OPPONENT},
+          effect: AbilityEffect { target: AbilityEffectTarget::TriggerTarget, damage: 1, t: ACID },
+          required_traits: attributes::ACIDIC, forbidden_traits: attributes::NONE, probability: 1.0 }
+      ],
+      vec![
+        &Attack { name: "Head Bump", cost: 1, damage: 3, t: PHYSICAL, required_traits: attributes::NONE,
+          forbidden_traits: attributes::NONE, prob: 1.0 }
+      ]
+    );
+
+    let leech_builder = EntityBuilder::new(
+      "Leech",
+      "A small parasite that quite literally sucks the life force out of you!",
+      (1, 5), (attributes::PHYSICAL, vec![
+        (VAMPIRIC, IMMUNITY)
+      ]),
+      vec![(attributes::POISONOUS, Vec::new(), 0.1)],
+      Vec::new(),
+      vec![
+        &Attack { name: "Parasite Bite", cost: 1, damage: 2, t: VAMPIRIC, required_traits: attributes::NONE,
+        forbidden_traits: attributes::NONE, prob: 1.0 },
+        &Attack { name: "Poison Sting", cost: 1, damage: 2, t: POISON, required_traits: attributes::POISONOUS,
+        forbidden_traits: attributes::NONE, prob: 1.0 }
+      ]
+    );
+  
+    let bat_builder = EntityBuilder::new(
+      "Bat",
+      "One of the most iconic nocturnal creatures of Phunuse.",
+      (1, 4), (attributes::PHYSICAL, vec![
+        (ACID, RESISTANCE)
+      ]),
+      Vec::new(),
+      vec![
+        &Ability { name: "Echo Strike", trigger: AbilityTrigger { t: AbilityTriggerType::AnyDamage, source: ITSELF, target: ALLY | OPPONENT },
+          effect: AbilityEffect { target: AbilityEffectTarget::TriggerTarget, damage: 1, t: PHYSICAL },
+          required_traits: attributes::NONE, forbidden_traits: attributes::NONE, probability: 1.0 }
+      ],
+      vec![
+        &Attack { name: "Sonic Scream", cost: 1, damage: 2, t: PHYSICAL, required_traits: attributes::NONE,
+        forbidden_traits: attributes::NONE, prob: 1.0 }
+      ]
+    );
+
+    let slime = slime_builder.build();
+    let bat = bat_builder.build();
+    let leech = leech_builder.build();
+
+    Arc::clone(ctx.data()).lock().unwrap().register("A", &slime);
+    Arc::clone(ctx.data()).lock().unwrap().register("A", &bat);
+    Arc::clone(ctx.data()).lock().unwrap().register("B", &leech);
+
+    ctx.say("Scene filled up!").await?;
+  }
+  else {
+    ctx.say("Cannot fill scene because it is not empty!").await?;
+  }
+  Ok(())
 }
 

@@ -19,11 +19,18 @@ impl Display for Ability {
   }
 }
 
-#[derive(Debug, PartialEq, Clone, Copy)]
+#[derive(Debug, Clone, Copy)]
 pub struct AbilityTrigger {
   pub t: AbilityTriggerType,
   pub source: u8,
   pub target: u8
+}
+
+impl AbilityTrigger {
+  pub fn match_(&self, other: &AbilityTrigger) -> bool {
+    self.t == other.t && self.source & other.source != 0 &&
+    self.target & other.target != 0
+  }
 }
 
 #[allow(dead_code)]
