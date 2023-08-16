@@ -17,7 +17,7 @@ type Error = Box<dyn std::error::Error + Send + Sync>;
 type Context<'a> = poise::Context<'a, Arc<Mutex<Scene>>, Error>;
 
 #[tokio::main]
-async fn main() {
+async fn main() { 
   dotenvy::dotenv().expect("Could not load environment variables.");
   let framework = poise::Framework::builder()
     .options(poise::FrameworkOptions {
@@ -35,7 +35,10 @@ async fn main() {
         poise::builtins::register_globally(ctx, &framework.options().commands).await?;
 
         let slime_builder = EntityBuilder::new(
-          "Slime", (2, 10), (attributes::NONE, vec![
+          "Slime",
+          "A small mass made out of a viscous substance.\n\
+          It would almost be cute... if it wasn't able to eat you whole.",
+          (2, 10), (attributes::NONE, vec![
             (PHYSICAL, RESISTANCE),
             (VAMPIRIC, RESISTANCE)
           ]),
@@ -61,7 +64,9 @@ async fn main() {
         );
       
         let leech_builder = EntityBuilder::new(
-          "Leech", (1, 5), (attributes::PHYSICAL, vec![
+          "Leech",
+          "A small parasite that quite literally sucks the life force out of you!",
+          (1, 5), (attributes::PHYSICAL, vec![
             (VAMPIRIC, IMMUNITY)
           ]),
           vec![(attributes::POISONOUS, Vec::new(), 1.0)],
@@ -75,7 +80,9 @@ async fn main() {
         );
       
         let bat_builder = EntityBuilder::new(
-          "Bat", (1, 4), (attributes::PHYSICAL, vec![
+          "Bat",
+          "One of the most iconic nocturnal creatures of Phunuse.",
+          (1, 4), (attributes::PHYSICAL, vec![
             (ACID, RESISTANCE)
           ]),
           Vec::new(),
@@ -142,7 +149,7 @@ async fn heal(ctx: Context<'_>,
     if let Some(e) = Arc::clone(ctx.data()).lock().unwrap().get_mut_entity_from_id(target) {
       if e.is_alive() {
         let healed_amt = e.heal(amount);
-        result = format!("Healed **{}**#{} for {} health!", e.name, target, healed_amt);
+        result = format!("Healed **{}**#{} for {} ❤️ ", e.name, target, healed_amt);
       }
       else {
         result = format!("Cannot heal **{}**#{} because it has already fainted!", e.name, target);
