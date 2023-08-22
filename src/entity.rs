@@ -6,11 +6,11 @@ pub mod state;
 use state::ALIVE;
 pub mod attributes;
 pub mod dmg_type;
-use dmg_type::{DamageType, PHYSICAL, POISON, ACID, VAMPIRIC};
+use dmg_type::DamageType;
 pub mod dmg_resistance;
-use dmg_resistance::{DamageResistance, DamageResistance::NEUTRAL};
+use dmg_resistance::DamageResistance;
 pub mod ability;
-pub use ability::{Ability, AbilityTrigger, AbilityEffect};
+pub use ability::{Ability, AbilityEffect, AbilityTrigger, AbilityTriggerType};
 pub mod attack;
 pub use attack::Attack;
 
@@ -57,42 +57,35 @@ pub struct EntityBuilder {
 
 impl Entity {
   #[allow(dead_code)]
-  pub fn take_damage(&mut self, amt: u8, t: dmg_type::DamageType) -> (String, u8) {
+  pub fn take_damage(&mut self, amt: u8) -> u8 {
     if self.state & ALIVE == 0 {
-      return (String::new(), 0);
+      return 0;
     }
 
-    let mut result = String::new();
+    if self.current_health < amt {
+      let actual_amt = self.current_health;
+      self.current_health = 0;
+      return actual_amt;
+    }
+    else {
+      self.current_health -= amt;
+      return amt;
+    }
+  }
 
-    println!("\"{}\" is being attacked for {} {} damage.", self.name, amt, t);
-    result += &format!("**{}** is being attacked for {} {} damage.\n", self.name, amt, t);
+  pub fn get_dmg_multiplier(&self, dmg_type: DamageType) -> f32 {
+    let mut result = 1.0;
 
-    let multiplier: f64;
-    match self.damage_resistance.get(&t).unwrap() {
-      DamageResistance::WEAKNESS => {
-        multiplier = 1.5;
-        println!("\"{}\" is weak to {} damage!", self.name, t);
-        result += &format!("**{}** is weak to {} damage!\n", self.name, t);
-      },
-      DamageResistance::NEUTRAL => multiplier = 1.0,
-      DamageResistance::RESISTANCE => {
-        multiplier = 0.5;
-        println!("\"{}\" is resistant to {} damage!", self.name, t);
-        result += &format!("**{}** is resistant to {} damage!\n", self.name, t);
-      },
-      DamageResistance::IMMUNITY => {
-        multiplier = 0.0;
-        println!("\"{}\" is immune to {} damage!", self.name, t);
-        result += &format!("**{}** is immune to {} damage!\n", self.name, t);
-      }
+    if let Some(resistance) = self.damage_resistance.get(&dmg_type) {
+      result = match resistance {
+        DamageResistance::WEAKNESS => 1.5,
+        DamageResistance::NEUTRAL => 1.0,
+        DamageResistance::RESISTANCE => 0.5,
+        DamageResistance::IMMUNITY => 0.0
+      };
     }
 
-    let actual_amount = (amt as f64 * multiplier) as u8;
-    println!("\"{}\" took {} {} damage.", self.name, actual_amount, t);
-    result += &format!("**{}** took {} {} damage.\n", self.name, actual_amount, t);
-    self.current_health -= actual_amount;
-
-    (result, actual_amount)
+    result
   }
 
   pub fn heal(&mut self, amt: u8) -> u8 {
@@ -101,14 +94,15 @@ impl Entity {
       return 0;
     }
 
-    let old_health = self.current_health;
-
-    self.current_health += amt;
-    if self.current_health >= self.max_health {
+    if self.current_health + amt >= self.max_health {
+      let actual_amt = self.current_health;
       self.current_health = self.max_health;
+      return actual_amt;
     }
-
-    self.current_health - old_health
+    else {
+      self.current_health += amt;
+      return amt;
+    }
   }
 
   pub fn get_attack(&self, attack_name: &str) -> Option<Attack> {
@@ -121,18 +115,14 @@ impl Entity {
     None
   }
 
-  #[allow(dead_code)]
-  pub fn check_for_trigger(&mut self, trigger: AbilityTrigger, ability_queue: &mut Vec<(Ability, u8, u8)>, source: u8, target: u8) -> String {
-    let mut result = String::new();
+  pub fn check_for_trigger(&self, trigger: AbilityTrigger) -> Option<(&str, AbilityEffect)> {
     for ability in self.abilities.iter() {
       if ability.trigger.match_(&trigger) {
-        println!("\"{}\" has been triggered! (#{})", ability.name, source);
-        result += &format!("`{}` has been triggered! (#{})\n", ability.name, source);
-
-        ability_queue.push(((*ability).clone(), source, target));
+        return Some((ability.name, ability.effect));
       }
     }
-    result
+
+    None
   }
 
   pub fn died(&mut self) -> bool {
@@ -178,12 +168,7 @@ impl EntityBuilder {
 
   fn get_properties(&self) -> (u8, HashMap<DamageType, DamageResistance>) {
     let mut traits = self.base_properties.0;
-    let mut resistances: HashMap<DamageType, DamageResistance> = HashMap::from([
-      (PHYSICAL, NEUTRAL),
-      (POISON, NEUTRAL),
-      (ACID, NEUTRAL),
-      (VAMPIRIC, NEUTRAL)
-    ]);
+    let mut resistances: HashMap<DamageType, DamageResistance> = HashMap::new();
 
     for (k, v) in self.base_properties.1.iter() {
       resistances.insert(*k, *v);

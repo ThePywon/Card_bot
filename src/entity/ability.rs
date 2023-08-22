@@ -19,7 +19,7 @@ impl Display for Ability {
   }
 }
 
-#[derive(Debug, Clone, Copy)]
+#[derive(Debug, Eq, PartialEq, Clone, Copy, Hash)]
 pub struct AbilityTrigger {
   pub t: AbilityTriggerType,
   pub source: u8,
@@ -34,7 +34,7 @@ impl AbilityTrigger {
 }
 
 #[allow(dead_code)]
-#[derive(Debug, PartialEq, Clone, Copy)]
+#[derive(Debug, Eq, PartialEq, Clone, Copy, Hash)]
 pub enum AbilityTriggerType {
   AnyDamage,
   Damage(DamageType),
@@ -51,7 +51,7 @@ pub struct AbilityEffect {
 #[allow(dead_code)]
 #[derive(Debug, Clone, Copy)]
 pub enum AbilityEffectTarget {
-  This,
+  Itself,
   TriggerTarget,
   AnyAlly,
   AnyOpponent,
@@ -120,7 +120,7 @@ impl Display for AbilityEffect {
     let target_str: &str;
 
     match self.target {
-      AbilityEffectTarget::This => target_str = "itself",
+      AbilityEffectTarget::Itself => target_str = "itself",
       AbilityEffectTarget::TriggerTarget => target_str = "that targeted creature",
       AbilityEffectTarget::AnyAlly => target_str = "a random ally",
       AbilityEffectTarget::AnyOpponent => target_str = "a random opponent",
